@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Mesai Takip</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: white;
+            min-height: 100vh;
+            padding: 0 0 20px 0;
+        }
+        .banner {
+            background: #4A90E2;
+            padding: 20px;
+            text-align: center;
+        }
+        .banner h1 {
+            color: white;
+            font-size: 28px;
+            letter-spacing: 2px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+        .month-selector {
+            margin-bottom: 20px;
+        }
+        .month-selector select {
+            width: 100%;
+            padding: 14px;
+            font-size: 18px;
+            font-weight: bold;
+            text-transform: uppercase;
+            border: 2px solid #4A90E2;
+            border-radius: 12px;
+            background: white;
+            cursor: pointer;
+        }
+        .weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+        .weekday {
+            text-align: center;
+            font-weight: bold;
+            font-size: 16px;
+            text-transform: uppercase;
+            padding: 10px 0;
+            background: #f0f0f0;
+            border-radius: 8px;
+        }
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+            margin-bottom: 24px;
+        }
+        .day-cell {
+            aspect-ratio: 1 / 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 500;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+        .day-cell.empty {
+            background: #fafafa;
+            border: 1px solid #eee;
+            cursor: default;
+        }
+        .day-cell.weekend {
+            border-width: 3px;
+            border-color: #333;
+            font-weight: 800;
+            color: #222;
+        }
+        .day-cell.red {
+            background: #ffebee;
+            color: #c62828;
+            border-color: #ef9a9a;
+        }
+        .day-cell.green {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-color: #a5d6a7;
+        }
+        .day-cell.today {
+            background: #f3e5f5;
+            color: #6a1b9a;
+            border-color: #9c27b0;
+            border-width: 3px;
+            font-weight: 800;
+        }
+        .summary {
+            background: #f8f9fa;
+            border-radius: 16px;
+            padding: 16px;
+            margin-top: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .summary-stats {
+            flex: 1;
+        }
+        .summary-month {
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 6px;
+        }
+        .summary-excess {
+            color: #2e7d32;
+            font-weight: bold;
+            font-size: 15px;
+        }
+        .summary-deficit {
+            color: #c62828;
+            font-weight: bold;
+            font-size: 15px;
+        }
+        .detail-btn {
+            background: #4A90E2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 40px;
+            font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            visibility: hidden;
+            opacity: 0;
+            transition: all 0.3s;
+        }
+        .modal-overlay.active {
+            visibility: visible;
+            opacity: 1;
+        }
+        .modal-content {
+            background: white;
+            width: 90%;
+            max-width: 450px;
+            max-height: 85vh;
+            border-radius: 28px;
+            overflow-y: auto;
+            position: relative;
+        }
+        .modal-banner {
+            background: #4A90E2;
+            padding: 18px;
+            text-align: center;
+            border-radius: 28px 28px 0 0;
+            position: sticky;
+            top: 0;
+        }
+        .modal-banner h2 {
+            color: white;
+            font-size: 20px;
+            text-transform: uppercase;
+        }
+        .modal-banner .date-large {
+            font-size: 26px;
+            font-weight: bold;
+            margin-top: 6px;
+            color: white;
+        }
+        .close-modal {
+            position: absolute;
+            right: 18px;
+            top: 18px;
+            background: #DC3545;
+            color: white;
+            border: none;
+            width: 34px;
+            height: 34px;
+            border-radius: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .modal-body {
+            padding: 24px 20px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        .input-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+        .input-group input, .input-group textarea {
+            width: 100%;
+            padding: 12px;
+            font-size: 18px;
+            border: 1px solid #ccc;
+            border-radius: 16px;
+        }
+        .input-group textarea {
+            font-size: 16px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 70px;
+        }
+        .total-hours {
+            background: #e9ecef;
+            padding: 12px;
+            border-radius: 16px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 18px;
+            margin: 20px 0;
+        }
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .btn-save {
+            background: #28A745;
+            color: white;
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 40px;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+        .btn-delete {
+            background: #DC3545;
+            color: white;
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 40px;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+        .btn-cancel {
+            background: #6c757d;
+            color: white;
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 40px;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+        .list-item {
+            background: #f8f9fa;
+            margin-bottom: 12px;
+            padding: 14px;
+            border-radius: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            cursor: pointer;
+        }
+        .list-date {
+            font-weight: bold;
+            font-size: 16px;
+            flex: 1;
+        }
+        .list-diff {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .list-note-icon {
+            font-size: 18px;
+            padding: 4px 8px;
+            background: #e9ecef;
+            border-radius: 20px;
+            pointer-events: none;
+        }
+        .section-title {
+            font-weight: bold;
+            margin: 16px 0 8px;
+            font-size: 18px;
+        }
+        .exit-confirm, .warning-confirm {
+            text-align: center;
+        }
+        .exit-confirm p, .warning-confirm p {
+            margin: 20px 0;
+            font-size: 18px;
+        }
+        @media (max-width: 480px) {
+            .day-cell { font-size: 14px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="banner">
+    <h1>MESAİ TAKİP</h1>
+</div>
+
+<div class="container">
+    <div class="month-selector">
+        <select id="monthSelect"></select>
+    </div>
+    <div class="weekdays" id="weekdays"></div>
+    <div class="calendar" id="calendar"></div>
+    <div class="summary">
+        <div class="summary-stats">
+            <div class="summary-month" id="summaryMonth">OCAK</div>
+            <div class="summary-deficit" id="deficitText">Eksik: 0 saat 0 dk</div>
+            <div class="summary-excess" id="excessText">Fazla: 0 saat 0 dk</div>
+        </div>
+        <button class="detail-btn" id="detailBtn">DETAY</button>
+    </div>
+</div>
+
+<script>
+    const MONTHS = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+    const WEEKDAYS = ["P", "P", "S", "Ç", "P", "C", "C"];
+    const DEFAULT_START = "07:45";
+    const DEFAULT_END = "17:45";
+    const LUNCH_START = 720;
+    const LUNCH_END = 780;
+    const EXPECTED_WORK_MIN = 540;
+    const STORAGE_KEY = "mesaiData";
+
+    let currentYear = new Date().getFullYear();
+    let currentMonth = new Date().getMonth();
+    let currentData = {};
+    let activeModal = null;
+
+    function timeToMinutes(t) { if(!t) return null; let [h,m]=t.split(":").map(Number); return h*60+m; }
+    function calculateWorkMinutes(g,c) {
+        if(!g||!c) return null;
+        let s=timeToMinutes(g), e=timeToMinutes(c);
+        if(s===null||e===null||e<=s) return null;
+        let w=e-s;
+        if(s<LUNCH_END && e>LUNCH_START) w-=60;
+        return w;
+    }
+    function isToday(d) { let t=new Date(); return d.getDate()===t.getDate() && d.getMonth()===t.getMonth() && d.getFullYear()===t.getFullYear(); }
+    function getDayColor(ds, dobj) {
+        let r=currentData[ds];
+        let wd=dobj.getDay();
+        let isW=(wd===0||wd===6);
+        if(!r) return "white";
+        let w=calculateWorkMinutes(r.giris,r.cikis);
+        if(w===null) return "white";
+        if(isW) return "green";
+        let diff=w-EXPECTED_WORK_MIN;
+        if(diff<0) return "red";
+        if(diff>0) return "green";
+        return "white";
+    }
+    function formatDateStr(d) { return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`; }
+    function formatDisplayDate(d) { return `${d.getDate().toString().padStart(2,'0')}.${(d.getMonth()+1).toString().padStart(2,'0')}.${d.getFullYear()}`; }
+    function formatDiffMinutes(dm) {
+        let a=Math.abs(dm), h=Math.floor(a/60), m=a%60, s=dm>=0?"+":"-";
+        return `${s}${h} saat ${m} dakika`;
+    }
+    function formatMinutesToHoursMinutes(min) { return `${Math.floor(min/60)} saat ${min%60} dakika`; }
+    function calculateMonthlyTotals(y,m) {
+        let days=new Date(y,m+1,0).getDate();
+        let def=0, exc=0;
+        for(let d=1;d<=days;d++) {
+            let date=new Date(y,m,d);
+            let ds=formatDateStr(date);
+            let r=currentData[ds];
+            if(!r) continue;
+            let w=calculateWorkMinutes(r.giris,r.cikis);
+            if(w===null) continue;
+            let isW=(date.getDay()===0||date.getDay()===6);
+            if(isW) exc+=w;
+            else { let diff=w-EXPECTED_WORK_MIN; if(diff<0) def+=(-diff); else if(diff>0) exc+=diff; }
+        }
+        return { deficitMin: def, excessMin: exc };
+    }
+
+    function closeAllModals() {
+        if(activeModal) {
+            let m = activeModal;
+            activeModal = null;
+            m.classList.remove('active');
+            setTimeout(() => { if(m && m.parentNode) m.parentNode.removeChild(m); }, 200);
+        }
+    }
+
+    function showWarningModal(onConfirm, onCancel) {
+        let el=document.createElement('div');
+        el.className='modal-overlay';
+        el.innerHTML=`<div class="modal-content"><div class="modal-banner"><button class="close-modal">✕</button><h2>UYARI</h2></div><div class="modal-body warning-confirm"><p>Önceki Mesai Saatleri Değişti.<br>Değişiklikleri kaydetmek istediğinize emin misiniz?</p><div class="button-group"><button class="btn-save" id="wy">EVET</button><button class="btn-cancel" id="wn">HAYIR</button></div></div></div>`;
+        document.body.appendChild(el);
+        setTimeout(()=>el.classList.add('active'),10);
+        let cleanup=()=>{ el.classList.remove('active'); setTimeout(()=>{ if(el.parentNode) el.parentNode.removeChild(el); },200); };
+        el.querySelector('.close-modal').onclick=()=>{ cleanup(); if(onCancel) onCancel(); };
+        el.querySelector('#wy').onclick=()=>{ cleanup(); if(onConfirm) onConfirm(); };
+        el.querySelector('#wn').onclick=()=>{ cleanup(); if(onCancel) onCancel(); };
+    }
+
+    function showExitConfirm() {
+        if(activeModal) closeAllModals();
+        let el=document.createElement('div');
+        el.className='modal-overlay';
+        el.innerHTML=`<div class="modal-content"><div class="modal-banner"><button class="close-modal">✕</button><h2>ÇIKIŞ</h2></div><div class="modal-body exit-confirm"><p>Uygulamadan çıkmak istediğinize emin misiniz?</p><div class="button-group"><button class="btn-save" id="exitYes">EVET</button><button class="btn-cancel" id="exitNo">HAYIR</button></div></div></div>`;
+        document.body.appendChild(el);
+        activeModal=el;
+        setTimeout(()=>el.classList.add('active'),10);
+        el.querySelector('.close-modal').onclick=()=>closeAllModals();
+        el.querySelector('#exitYes').onclick=()=>{ window.history.back(); };
+        el.querySelector('#exitNo').onclick=()=>closeAllModals();
+    }
+
+    function openEditModal(dateObj, dateStr) {
+        if(activeModal) closeAllModals();
+        let existing=currentData[dateStr]||null;
+        let rec=existing||{ giris:DEFAULT_START, cikis:DEFAULT_END, not:"" };
+        let el=document.createElement('div');
+        el.className='modal-overlay';
+        let fd=formatDisplayDate(dateObj);
+        el.innerHTML=`<div class="modal-content"><div class="modal-banner"><button class="close-modal">✕</button><div class="date-large">${fd}</div></div><div class="modal-body"><div class="input-group"><label>İşe Giriş Saati</label><input type="time" id="mg" value="${rec.giris}"></div><div class="input-group"><label>İşten Çıkış Saati</label><input type="time" id="mc" value="${rec.cikis}"></div><div class="total-hours" id="th">Toplam: 0 saat 0 dakika</div><div class="input-group"><label>Not / Açıklama</label><textarea id="mn" rows="3" placeholder="Mesai sebebi...">${rec.not||""}</textarea></div><div class="button-group"><button class="btn-save" id="saveBtn">KAYDET</button><button class="btn-delete" id="deleteBtn">SİL</button><button class="btn-cancel" id="cancelBtn">İPTAL</button></div></div></div>`;
+        document.body.appendChild(el);
+        activeModal=el;
+        setTimeout(()=>el.classList.add('active'),10);
+        let gi=el.querySelector('#mg'), ci=el.querySelector('#mc'), nt=el.querySelector('#mn'), th=el.querySelector('#th');
+        let delMode=false;
+        let upd=()=>{ let g=gi.value,c=ci.value; if(g&&c){ let w=calculateWorkMinutes(g,c); if(w!==null){ let h=Math.floor(w/60),m=w%60; th.innerText=`Toplam: ${h} saat ${m} dakika`; } else th.innerText="Toplam: Hatalı saat"; } else th.innerText="Toplam: --"; };
+        gi.onchange=upd; ci.onchange=upd; upd();
+        el.querySelector('.close-modal').onclick=()=>closeAllModals();
+        el.querySelector('#cancelBtn').onclick=()=>closeAllModals();
+        el.querySelector('#deleteBtn').onclick=()=>{ gi.value=DEFAULT_START; ci.value=DEFAULT_END; nt.value=""; upd(); delMode=true; };
+        el.querySelector('#saveBtn').onclick=()=>{
+            let ng=gi.value, nc=ci.value, nn=nt.value;
+            let changed=false;
+            if(existing){ if(delMode) changed=true; else if(existing.giris!==ng || existing.cikis!==nc || (existing.not||"")!==nn) changed=true; }
+            let save=()=>{
+                if(delMode){ if(currentData[dateStr]) delete currentData[dateStr]; }
+                else if(ng&&nc){ if(!currentData[dateStr]) currentData[dateStr]={}; currentData[dateStr].giris=ng; currentData[dateStr].cikis=nc; if(nn) currentData[dateStr].not=nn; else delete currentData[dateStr].not; }
+                localStorage.setItem(STORAGE_KEY,JSON.stringify(currentData));
+                renderCalendar();
+                closeAllModals();
+            };
+            if(changed && existing) showWarningModal(save,()=>{});
+            else save();
+        };
+    }
+
+    function openReportModal() {
+        if(activeModal) closeAllModals();
+        let days=new Date(currentYear,currentMonth+1,0).getDate();
+        let red=[], green=[];
+        for(let d=1;d<=days;d++){
+            let date=new Date(currentYear,currentMonth,d);
+            let ds=formatDateStr(date);
+            let rec=currentData[ds];
+            if(!rec) continue;
+            let w=calculateWorkMinutes(rec.giris,rec.cikis);
+            if(w===null) continue;
+            let isW=(date.getDay()===0||date.getDay()===6);
+            if(isW) green.push({date,diffMin:w,dateStr:ds,record:rec});
+            else{ let diff=w-EXPECTED_WORK_MIN; if(diff<0) red.push({date,diffMin:diff,dateStr:ds,record:rec}); else if(diff>0) green.push({date,diffMin:diff,dateStr:ds,record:rec}); }
+        }
+        let el=document.createElement('div');
+        el.className='modal-overlay';
+        let html=`<div class="modal-content"><div class="modal-banner"><button class="close-modal">✕</button><h2>EKSİK - FAZLA ÇALIŞMA GÜNLERİ</h2></div><div class="modal-body"><div class="section-title" style="color:#c62828;">🔴 Eksik Mesai</div>`;
+        if(red.length===0) html+=`<div>Kayıt yok</div>`;
+        for(let i of red){ let dv=formatDisplayDate(i.date); let dt=formatDiffMinutes(i.diffMin); let hn=i.record.not&&i.record.not.trim()!==""; html+=`<div class="list-item" data-date="${i.dateStr}"><span class="list-date">${dv}</span><span class="list-diff" style="color:#c62828;">${dt}</span>${hn?'<span class="list-note-icon">📌</span>':''}</div>`; }
+        html+=`<div class="section-title" style="color:#2e7d32;">🟢 Fazla Mesai</div>`;
+        if(green.length===0) html+=`<div>Kayıt yok</div>`;
+        for(let i of green){ let dv=formatDisplayDate(i.date); let dt=formatDiffMinutes(i.diffMin); let hn=i.record.not&&i.record.not.trim()!==""; html+=`<div class="list-item" data-date="${i.dateStr}"><span class="list-date">${dv}</span><span class="list-diff" style="color:#2e7d32;">${dt}</span>${hn?'<span class="list-note-icon">📌</span>':''}</div>`; }
+        html+=`</div></div>`;
+        el.innerHTML=html;
+        document.body.appendChild(el);
+        activeModal=el;
+        setTimeout(()=>el.classList.add('active'),10);
+        
+        el.querySelector('.close-modal').onclick=function(e){ e.stopPropagation(); closeAllModals(); };
+        
+        let items = el.querySelectorAll('.list-item');
+        for(let i=0;i<items.length;i++){
+            let item = items[i];
+            let ds = item.getAttribute('data-date');
+            item.onclick = function(e){
+                if(e.target.classList && e.target.classList.contains('list-note-icon')) return;
+                // Satıra tıklayınca hiçbir şey yapmıyoruz (isteğe bağlı düzenleme eklenebilir)
+            };
+        }
+    }
+
+    function renderCalendar() {
+        let cal=document.getElementById('calendar');
+        let ms=document.getElementById('monthSelect');
+        ms.value=currentMonth;
+        let first=new Date(currentYear,currentMonth,1);
+        let startOff=(first.getDay()===0?6:first.getDay()-1);
+        let days=new Date(currentYear,currentMonth+1,0).getDate();
+        cal.innerHTML="";
+        for(let i=0;i<35;i++){
+            let cell=document.createElement('div');
+            cell.className='day-cell';
+            let dn=i-startOff+1;
+            if(dn>=1 && dn<=days){
+                let d=new Date(currentYear,currentMonth,dn);
+                let ds=formatDateStr(d);
+                let isW=(d.getDay()===0||d.getDay()===6);
+                let isT=isToday(d);
+                let col=getDayColor(ds,d);
+                cell.textContent=dn;
+                if(isW) cell.classList.add('weekend');
+                if(col==='red') cell.classList.add('red');
+                else if(col==='green') cell.classList.add('green');
+                if(isT) cell.classList.add('today');
+                cell.onclick=(function(dd, dds){ return function(){ openEditModal(dd, dds); }; })(d,ds);
+            } else { cell.classList.add('empty'); cell.textContent=""; }
+            cal.appendChild(cell);
+        }
+        let totals=calculateMonthlyTotals(currentYear,currentMonth);
+        document.getElementById('summaryMonth').innerText=MONTHS[currentMonth].toUpperCase();
+        document.getElementById('deficitText').innerHTML=`Eksik: ${formatMinutesToHoursMinutes(totals.deficitMin)}`;
+        document.getElementById('excessText').innerHTML=`Fazla: ${formatMinutesToHoursMinutes(totals.excessMin)}`;
+    }
+
+    function changeMonth() { currentMonth=parseInt(document.getElementById('monthSelect').value); renderCalendar(); }
+    function loadData() { let s=localStorage.getItem(STORAGE_KEY); currentData=s?JSON.parse(s):{}; }
+    function handleBackButton() { if(activeModal) closeAllModals(); else showExitConfirm(); }
+
+    function init() {
+        loadData();
+        let sel=document.getElementById('monthSelect');
+        for(let i=0;i<MONTHS.length;i++){ let o=document.createElement('option'); o.value=i; o.textContent=MONTHS[i]; if(i===currentMonth) o.selected=true; sel.appendChild(o); }
+        sel.onchange=changeMonth;
+        let wd=document.getElementById('weekdays');
+        for(let i=0;i<WEEKDAYS.length;i++){ let s=document.createElement('div'); s.className='weekday'; s.textContent=WEEKDAYS[i]; wd.appendChild(s); }
+        renderCalendar();
+        document.getElementById('detailBtn').onclick=function(){ openReportModal(); };
+        window.addEventListener('popstate',function(e){ e.preventDefault(); handleBackButton(); history.pushState(null,null,location.href); });
+        history.pushState(null,null,location.href);
+    }
+    init();
+</script>
+</body>
+</html>
