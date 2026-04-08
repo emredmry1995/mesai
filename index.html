@@ -372,7 +372,7 @@
         let s=timeToMinutes(g), e=timeToMinutes(c);
         if(s===null||e===null||e<=s) return null;
         let w=e-s;
-        if(s<LUNCH_END && e>LUNCH_START) w-=60;
+       
         return w;
     }
     function isToday(d) { let t=new Date(); return d.getDate()===t.getDate() && d.getMonth()===t.getMonth() && d.getFullYear()===t.getFullYear(); }
