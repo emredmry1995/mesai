@@ -149,6 +149,77 @@
             text-transform: uppercase;
             cursor: pointer;
         }
+        .wage-card {
+            background: linear-gradient(135deg, #1e2a3a 0%, #0f1724 100%);
+            border-radius: 24px;
+            padding: 18px 20px;
+            margin-top: 20px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .wage-title {
+            color: #ffd966;
+            font-size: 18px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 10px;
+        }
+        .wage-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .wage-label {
+            color: #cbd5e1;
+            font-size: 15px;
+            font-weight: 500;
+        }
+        .wage-amount {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+        .wage-amount.excess {
+            color: #4ade80;
+        }
+        .wage-amount.deficit {
+            color: #f87171;
+        }
+        .wage-total {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 2px dashed rgba(255,255,255,0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .wage-total-label {
+            color: #facc15;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .wage-total-amount {
+            font-size: 24px;
+            font-weight: 800;
+            color: #facc15;
+        }
+        .wage-note {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 12px;
+            text-align: center;
+        }
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -326,6 +397,8 @@
         }
         @media (max-width: 480px) {
             .day-cell { font-size: 14px; }
+            .wage-amount { font-size: 18px; }
+            .wage-total-amount { font-size: 20px; }
         }
     </style>
 </head>
@@ -349,6 +422,27 @@
         </div>
         <button class="detail-btn" id="detailBtn">DETAY</button>
     </div>
+    
+    <div class="wage-card" id="wageCard">
+        <div class="wage-title">
+            💰 MESAİ ÜCRET HESABI
+        </div>
+        <div class="wage-row">
+            <span class="wage-label">🔴 Eksik Mesai Ücreti (250 TL/saat)</span>
+            <span class="wage-amount deficit" id="deficitWageAmount">0,00 TL</span>
+        </div>
+        <div class="wage-row">
+            <span class="wage-label">🟢 Fazla Mesai Ücreti (312,5 TL/saat)</span>
+            <span class="wage-amount excess" id="excessWageAmount">0,00 TL</span>
+        </div>
+        <div class="wage-total">
+            <span class="wage-total-label">🏆 NET FARK (Fazla - Eksik)</span>
+            <span class="wage-total-amount" id="netWageAmount">0,00 TL</span>
+        </div>
+        <div class="wage-note">
+            * Eksik saatler 250₺/saat, fazla saatler 312,5₺/saat üzerinden hesaplanır.
+        </div>
+    </div>
 </div>
 
 <script>
@@ -361,6 +455,10 @@
     const EXPECTED_WORK_MIN = 540;
     const STORAGE_KEY = "mesaiData";
 
+    // Ücret sabitleri (saatlik) - GÜNCELLENDİ
+    const DEFICIT_HOURLY_RATE = 250;     // eksik mesai ücreti (TL/saat)
+    const EXCESS_HOURLY_RATE = 312.5;    // fazla mesai ücreti (TL/saat)
+
     let currentYear = new Date().getFullYear();
     let currentMonth = new Date().getMonth();
     let currentData = {};
@@ -372,7 +470,15 @@
         let s=timeToMinutes(g), e=timeToMinutes(c);
         if(s===null||e===null||e<=s) return null;
         let w=e-s;
-       
+        let lunchStart = LUNCH_START;
+        let lunchEnd = LUNCH_END;
+        if(s < lunchEnd && e > lunchStart) {
+            let overlapStart = Math.max(s, lunchStart);
+            let overlapEnd = Math.min(e, lunchEnd);
+            if(overlapEnd > overlapStart) {
+                w -= (overlapEnd - overlapStart);
+            }
+        }
         return w;
     }
     function isToday(d) { let t=new Date(); return d.getDate()===t.getDate() && d.getMonth()===t.getMonth() && d.getFullYear()===t.getFullYear(); }
@@ -396,6 +502,12 @@
         return `${s}${h} saat ${m} dakika`;
     }
     function formatMinutesToHoursMinutes(min) { return `${Math.floor(min/60)} saat ${min%60} dakika`; }
+    
+    function minutesToWage(minutes, hourlyRate) {
+        let hours = minutes / 60;
+        return hours * hourlyRate;
+    }
+    
     function calculateMonthlyTotals(y,m) {
         let days=new Date(y,m+1,0).getDate();
         let def=0, exc=0;
@@ -411,6 +523,35 @@
             else { let diff=w-EXPECTED_WORK_MIN; if(diff<0) def+=(-diff); else if(diff>0) exc+=diff; }
         }
         return { deficitMin: def, excessMin: exc };
+    }
+    
+    function updateWageDisplay() {
+        let totals = calculateMonthlyTotals(currentYear, currentMonth);
+        let deficitMin = totals.deficitMin;
+        let excessMin = totals.excessMin;
+        
+        let deficitWage = minutesToWage(deficitMin, DEFICIT_HOURLY_RATE);
+        let excessWage = minutesToWage(excessMin, EXCESS_HOURLY_RATE);
+        let netWage = excessWage - deficitWage;
+        
+        let deficitFormatted = deficitWage.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " TL";
+        let excessFormatted = excessWage.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " TL";
+        let netFormatted = netWage.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " TL";
+        
+        let deficitSpan = document.getElementById('deficitWageAmount');
+        let excessSpan = document.getElementById('excessWageAmount');
+        let netSpan = document.getElementById('netWageAmount');
+        if(deficitSpan) deficitSpan.innerText = deficitFormatted;
+        if(excessSpan) excessSpan.innerText = excessFormatted;
+        if(netSpan) netSpan.innerText = netFormatted;
+        
+        if(netSpan) {
+            if(netWage >= 0) {
+                netSpan.style.color = "#4ade80";
+            } else {
+                netSpan.style.color = "#f87171";
+            }
+        }
     }
 
     function closeAllModals() {
@@ -518,7 +659,6 @@
             let ds = item.getAttribute('data-date');
             item.onclick = function(e){
                 if(e.target.classList && e.target.classList.contains('list-note-icon')) return;
-                // Satıra tıklayınca hiçbir şey yapmıyoruz (isteğe bağlı düzenleme eklenebilir)
             };
         }
     }
@@ -554,6 +694,8 @@
         document.getElementById('summaryMonth').innerText=MONTHS[currentMonth].toUpperCase();
         document.getElementById('deficitText').innerHTML=`Eksik: ${formatMinutesToHoursMinutes(totals.deficitMin)}`;
         document.getElementById('excessText').innerHTML=`Fazla: ${formatMinutesToHoursMinutes(totals.excessMin)}`;
+        
+        updateWageDisplay();
     }
 
     function changeMonth() { currentMonth=parseInt(document.getElementById('monthSelect').value); renderCalendar(); }
@@ -571,6 +713,8 @@
         document.getElementById('detailBtn').onclick=function(){ openReportModal(); };
         window.addEventListener('popstate',function(e){ e.preventDefault(); handleBackButton(); history.pushState(null,null,location.href); });
         history.pushState(null,null,location.href);
+        
+        updateWageDisplay();
     }
     init();
 </script>
